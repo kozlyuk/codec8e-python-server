@@ -20,7 +20,6 @@ s.bind((HOST, PORT))
 def decode_record(data, car_id):
     """ Decode record data """
 
-    print(int(data[:16], 16))
     timestamp = datetime.fromtimestamp(int(data[:16], 16)/1000)
     priority = int(data[16:18], 16)
     lon = int(data[18:26], 16)
@@ -43,14 +42,17 @@ def check_imei(imei):
 
     try:
         params = config()
-        print('Connecting to the PostgreSQL database...')
         connection = psycopg2.connect(**params)
         cursor = connection.cursor()
 
-        print('Check if imei registered')
         sql = f"SELECT id FROM car_car WHERE sim_imei = '{imei}';"
         cursor.execute(sql)
         car_id = cursor.fetchone()
+
+        if car_id:
+            print("IMEI registered. Car id:", car_id)
+        else:
+            print("IMEI not registered:", imei)
 
     except (Exception, psycopg2.Error) as error:
         print("Error while fetching data from PostgreSQL", error)
@@ -60,7 +62,6 @@ def check_imei(imei):
         if connection:
             cursor.close()
             connection.close()
-            print("PostgreSQL connection is closed")
 
     return car_id
 
@@ -70,7 +71,6 @@ def store_records(record_data):
 
     try:
         params = config()
-        print('Connecting to the PostgreSQL database...')
         connection = psycopg2.connect(**params)
         cursor = connection.cursor()
         psycopg2.extras.register_uuid()
@@ -78,9 +78,7 @@ def store_records(record_data):
         insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, longitude, latitude, altitude, \
                                                      angle, satellites, speed, created_at, updated_at, request_data) VALUES %s"
         print("Store records to database")
-        print(record_data)
         psycopg2.extras.execute_values(cursor, insert_query, record_data)
-
 
     except (Exception, psycopg2.Error) as error:
         print("Error while fetching data from PostgreSQL", error)
@@ -90,7 +88,6 @@ def store_records(record_data):
         if connection:
             cursor.close()
             connection.close()
-            print("PostgreSQL connection is closed")
 
 
 def parse_packet(data, car_id):
@@ -108,7 +105,6 @@ def parse_packet(data, car_id):
         for record in range(records):
             start = (offset  + record_size) * record
             finish = start + record_size
-            print(records_data[start:finish])
             fields.append(decode_record(records_data[start:finish], car_id))
 
     # store records to database
@@ -119,17 +115,16 @@ def parse_packet(data, car_id):
 
 
 def handle_client(conn, addr):
+    """ thread function communicating with device """
 
     print(f"[NEW CONNECTION] {addr} connected.")
     imei = conn.recv(128)
     car_id = check_imei(str(imei)[10:-1])
-    print(car_id)
 
     if car_id:
         try:
             message = '\x01'
             message = message.encode('utf-8')
-            print("Send " + str(message))
             conn.send(message)
 
         except:
@@ -140,10 +135,8 @@ def handle_client(conn, addr):
             try:
                 data = conn.recv(2048)
                 recieved = binascii.hexlify(data)
-                print(recieved)
                 record = binascii.unhexlify(parse_packet(recieved, car_id))
-                print("Send " + str(record))
-                # conn.send(record)
+                conn.send(record)
 
             except socket.error:
                 print("Error Occured.")
@@ -152,25 +145,16 @@ def handle_client(conn, addr):
     conn.close()
 
 
-
 def start():
+    """ main function """
 
     s.listen()
-
     print(" Server is listening ...")
 
-    # data = b'000000000000048b8e0a00000179c6ff9830000d51ccb91cfff7ce009400460c000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000500b60004004232aa00430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c7016cf0000d51ccb91cfff7ce009400460e000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000600b60003004232a800430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c70341b0000d51ccb91cfff7ce0094004611000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000500b60003004232aa00430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c7051670000d51ccb91cfff7ce009400460e000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000500b60003004232a600430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c706eb30000d51ccb91cfff7ce0094004611000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000400b60003004232aa00430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c708bff0000d51ccb91cfff7ce0094004610000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000500b60003004232aa00430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c70a94b0000d51ccb91cfff7ce0094004611000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000400b60003004232a500430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c70c6970000d51ccb91cfff7ce0094004611000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000400b60003004232a600430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c70e3e30000d51ccb91cfff7ce0094004610000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000400b60003004232a500430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e000000000179c71012f0000d51ccb91cfff7ce0094004611000000000012000800ef0000f00000150300c800004501005100005200009800000500b5000500b60003004232ad00430fcb00440000000400f10000639f0010001ba25d00570000000000690000000000010084000000000000003e00000a0000505b'
-
-    # parse_packet(data, 'weqewwqew')
-
     while True:
-
         conn, addr = s.accept()
-
         thread = threading.Thread(target=handle_client, args=(conn, addr))
-
         thread.start()
-
         print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
 
 print("[STARTING] server is starting...")
