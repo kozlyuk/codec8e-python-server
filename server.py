@@ -58,11 +58,16 @@ def store_records(record_data):
         cursor = connection.cursor()
         psycopg2.extras.register_uuid()
 
-        insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, longitude, latitude, altitude, \
-                                                     angle, satellites, speed, created_at, updated_at, event_id, io_elements) \
+        insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, \
+                                                     longitude, latitude, altitude, \
+                                                     angle, satellites, speed, \
+                                                     event_id, io_elements, \
+                                                     created_at, updated_at) \
                                                      VALUES %s"
-        print("Store records to database")
+        print("Store records to database" + "\n")
         psycopg2.extras.execute_values(cursor, insert_query, record_data)
+
+        connection.commit()
 
     except (Exception, psycopg2.Error) as error:
         print("Error while fetching data from PostgreSQL", error)
@@ -88,7 +93,6 @@ def parse_packet(data, car_id):
         index = 20
 
         for _ in range(records):
-
             timestamp = datetime.fromtimestamp(int(data[index:index+16], 16)/1000)
             priority = int(data[index+16:index+18], 16)
             lon = int(data[index+18:index+26], 16)
@@ -103,9 +107,11 @@ def parse_packet(data, car_id):
             io_elements = {}
             index += 56
 
-            for bytes in [1,2,4,8,16]:
+            # parse IO Elements
+            for bytes in [1, 2, 4, 8, 16]:
                 elements = int(data[index:index+4], 16)
                 index += 4
+
                 for _ in range(elements):
                     key = int(data[index:index+4], 16)
                     value = int(data[index+4:index+4+bytes*2], 16)
@@ -115,8 +121,7 @@ def parse_packet(data, car_id):
             fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
                           event_id, json.dumps(io_elements), created_at, updated_at))
             print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
-                  "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements) + "\n")
-
+                  "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
 
     # store records to database
     store_records(fields)
