@@ -7,6 +7,7 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 import uuid
+import json
 
 from config import config
 
@@ -15,24 +16,6 @@ PORT = 12900
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
-
-
-def decode_record(data, car_id):
-    """ Decode record data """
-
-    timestamp = datetime.fromtimestamp(int(data[:16], 16)/1000)
-    priority = int(data[16:18], 16)
-    lon = int(data[18:26], 16)
-    lat = int(data[26:34], 16)
-    alt = int(data[34:38], 16)
-    angle = int(data[38:42], 16)
-    sats = int(data[42:44], 16)
-    speed = int(data[44:48], 16)
-    created_at = datetime.now()
-    updated_at = datetime.now()
-
-    print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) + "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\n")
-    return (uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed, created_at, updated_at, data)
 
 
 def check_imei(imei):
@@ -76,7 +59,8 @@ def store_records(record_data):
         psycopg2.extras.register_uuid()
 
         insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, longitude, latitude, altitude, \
-                                                     angle, satellites, speed, created_at, updated_at, request_data) VALUES %s"
+                                                     angle, satellites, speed, created_at, updated_at, event_id, io_elements) \
+                                                     VALUES %s"
         print("Store records to database")
         psycopg2.extras.execute_values(cursor, insert_query, record_data)
 
@@ -96,22 +80,49 @@ def parse_packet(data, car_id):
     # parse packet
     codec = int(data[16:18], 16)
     records = int(data[18:20], 16)
-    records_data = data[20:]
+    response = '000000' + data[18:20].decode("utf-8")
     fields = []
 
+    # parse packet for teltonika codec 8 extended
     if (codec == 0x8E):
-        offset = 7
-        record_size = 225
-        for record in range(records):
-            start = (offset  + record_size) * record
-            finish = start + record_size
-            fields.append(decode_record(records_data[start:finish], car_id))
+        index = 20
+
+        for _ in range(records):
+
+            timestamp = datetime.fromtimestamp(int(data[index:index+16], 16)/1000)
+            priority = int(data[index+16:index+18], 16)
+            lon = int(data[index+18:index+26], 16)
+            lat = int(data[index+26:index+34], 16)
+            alt = int(data[index+34:index+38], 16)
+            angle = int(data[index+38:index+42], 16)
+            sats = int(data[index+42:index+44], 16)
+            speed = int(data[index+44:index+48], 16)
+            event_id = int(data[index+48:index+52], 16)
+            created_at = datetime.now()
+            updated_at = datetime.now()
+            io_elements = {}
+            index += 56
+
+            for bytes in [1,2,4,8,16]:
+                elements = int(data[index:index+4], 16)
+                index += 4
+                for _ in range(elements):
+                    key = int(data[index:index+4], 16)
+                    value = int(data[index+4:index+4+bytes*2], 16)
+                    io_elements[key] = value
+                    index += 4 + bytes*2
+
+            fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
+                          event_id, json.dumps(io_elements), created_at, updated_at))
+            print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
+                  "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements) + "\n")
+
 
     # store records to database
     store_records(fields)
 
     # send records quantity to device
-    return '000000' + data[18:20].decode("utf-8")
+    return response
 
 
 def handle_client(conn, addr):
