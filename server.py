@@ -9,13 +9,31 @@ from datetime import datetime
 import uuid
 import json
 
+from configparser import ConfigParser
 from config import config
 
-HOST = '127.0.0.1'
-PORT = 12900
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.bind((HOST, PORT))
+def parse_config(envfile='.env', section='server'):
+    """ parsing env file """
+
+    # create a parser
+    parser = ConfigParser()
+    # read config file
+    parser.read(envfile)
+
+    # get section, default to server
+    if parser.has_section(section):
+        params = parser.items(section)
+        for param in params:
+            if param[0] == 'host':
+                host = param[1]
+            if param[0] == 'port':
+                port = int(param[1])
+    else:
+        host='127.0.0.1'
+        port=12900
+
+    return host, port
 
 
 def check_imei(imei):
@@ -164,8 +182,12 @@ def handle_client(conn, addr):
 def start():
     """ main function """
 
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    host, port = parse_config()
+    s.bind((host, port))
+
     s.listen()
-    print(" Server is listening ...")
+    print(" Server is listening on", host, port)
 
     while True:
         conn, addr = s.accept()
