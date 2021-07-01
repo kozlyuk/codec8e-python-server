@@ -79,7 +79,7 @@ def store_records(record_data):
         insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, \
                                                      longitude, latitude, altitude, \
                                                      angle, satellites, speed, \
-                                                     event_id, io_elements, \
+                                                     event_id, is_parked, io_elements, \
                                                      created_at, updated_at) \
                                                      VALUES %s"
         print("Store records to database" + "\n")
@@ -136,8 +136,15 @@ def parse_packet(data, car_id):
                     io_elements[key] = value
                     index += 4 + bytes*2
 
+            # set is_parked flag
+            is_parked = False
+            is_ignition_on = io_elements.get('239', True)
+            is_movement = io_elements.get('240', True)
+            if not is_ignition_on and not is_movement:
+                is_parked = True
+
             fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
-                          event_id, json.dumps(io_elements), created_at, updated_at))
+                          event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
             print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
                   "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
 
