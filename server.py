@@ -125,6 +125,7 @@ def parse_packet(data, car_id):
             sats = int(data[index+42:index+44], 16)
             speed = int(data[index+44:index+48], 16)
             event_id = int(data[index+48:index+52], 16)
+            is_parked = False
             created_at = datetime.now()
             updated_at = datetime.now()
             io_elements = {}
@@ -142,9 +143,8 @@ def parse_packet(data, car_id):
                     index += 4 + bytes*2
 
             # set is_parked flag
-            is_parked = False
-            is_ignition_on = io_elements.get('239', True)
-            is_movement = io_elements.get('240', True)
+            is_ignition_on = int(io_elements.get('239', 1))
+            is_movement = int(io_elements.get('240', 1))
             if not is_ignition_on and not is_movement:
                 is_parked = True
 
