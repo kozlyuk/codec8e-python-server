@@ -71,6 +71,7 @@ def store_records(record_data):
     """ store records to database """
 
     try:
+        succeed = False
         params = config()
         connection = psycopg2.connect(**params)
         cursor = connection.cursor()
@@ -90,11 +91,15 @@ def store_records(record_data):
     except (Exception, psycopg2.Error) as error:
         print("Error while fetching data from PostgreSQL", error)
 
+    else:
+        succeed = True
+
     finally:
         # closing database connection.
         if connection:
             cursor.close()
             connection.close()
+        return succeed
 
 
 def parse_packet(data, car_id):
@@ -149,10 +154,9 @@ def parse_packet(data, car_id):
                   "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
 
     # store records to database
-    store_records(fields)
-
-    # send records quantity to device
-    return response
+    if store_records(fields):
+        # send records quantity to device
+        return response
 
 
 def handle_client(conn, addr):
