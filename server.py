@@ -143,8 +143,8 @@ def parse_packet(data, car_id):
                     index += 4 + bytes*2
 
             # set is_parked flag
-            is_ignition_on = int(io_elements.get('239', 1))
-            is_movement = int(io_elements.get('240', 1))
+            is_ignition_on = io_elements.get(239, 1)
+            is_movement = io_elements.get(240, 1)
             if not is_ignition_on and not is_movement:
                 is_parked = True
 
@@ -152,6 +152,7 @@ def parse_packet(data, car_id):
                           event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
             print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
                   "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
+
 
     # store records to database
     if store_records(fields):
@@ -198,13 +199,20 @@ def start():
     s.bind((host, port))
 
     s.listen()
-    print(" Server is listening on", host, port)
+    print(f"Server is listening on {host}:{port}")
 
     while True:
-        conn, addr = s.accept()
-        thread = threading.Thread(target=handle_client, args=(conn, addr))
-        thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        try:
+            conn, addr = s.accept()
+            thread = threading.Thread(target=handle_client, args=(conn, addr))
+            thread.start()
+            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        except KeyboardInterrupt:
+            try:
+                if conn:
+                    conn.close()
+            except: pass
+            break
 
 print("[STARTING] server is starting...")
 
