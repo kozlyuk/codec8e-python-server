@@ -6,11 +6,10 @@ import binascii
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
-import uuid
-import json
 
 from configparser import ConfigParser
 from config import config
+from teltonika import codec8, codec8e
 
 
 def parse_config(envfile='.env', section='server'):
@@ -67,7 +66,7 @@ def check_imei(imei):
     return car_id
 
 
-def store_records(record_data):
+def store_records(record_data, car_id):
     """ store records to database """
 
     try:
@@ -76,6 +75,10 @@ def store_records(record_data):
         connection = psycopg2.connect(**params)
         cursor = connection.cursor()
         psycopg2.extras.register_uuid()
+
+        # # getting last record
+        # last_record_querry = f"SELECT is_parked FROM tracking_record WHERE car_id={car_id} ORDER BY timestamp DESC  LIMIT 1"
+        # is_parked =
 
         insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, \
                                                      longitude, latitude, altitude, \
@@ -107,55 +110,17 @@ def parse_packet(data, car_id):
 
     # parse packet
     codec = int(data[16:18], 16)
-    records = int(data[18:20], 16)
-    response = '000000' + data[18:20].decode("utf-8")
-    fields = []
 
     # parse packet for teltonika codec 8 extended
-    if (codec == 0x8E):
-        index = 20
-
-        for _ in range(records):
-            timestamp = datetime.fromtimestamp(int(data[index:index+16], 16)/1000)
-            priority = int(data[index+16:index+18], 16)
-            lon = int(data[index+18:index+26], 16)
-            lat = int(data[index+26:index+34], 16)
-            alt = int(data[index+34:index+38], 16)
-            angle = int(data[index+38:index+42], 16)
-            sats = int(data[index+42:index+44], 16)
-            speed = int(data[index+44:index+48], 16)
-            event_id = int(data[index+48:index+52], 16)
-            is_parked = False
-            created_at = datetime.now()
-            updated_at = datetime.now()
-            io_elements = {}
-            index += 56
-
-            # parse IO Elements
-            for bytes in [1, 2, 4, 8, 16]:
-                elements = int(data[index:index+4], 16)
-                index += 4
-
-                for _ in range(elements):
-                    key = int(data[index:index+4], 16)
-                    value = int(data[index+4:index+4+bytes*2], 16)
-                    io_elements[key] = value
-                    index += 4 + bytes*2
-
-            # set is_parked flag
-            is_ignition_on = io_elements.get(239, 1)
-            is_movement = io_elements.get(240, 1)
-            if not is_ignition_on and not is_movement:
-                is_parked = True
-
-            fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
-                          event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
-            print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
-                  "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
-
+    if (codec == 8):
+        fields, response = codec8(data, car_id)
+    elif (codec == 0x8E):
+        fields, response = codec8e(data, car_id)
+    else:
+        print('This codec is not implemented:', codec)
 
     # store records to database
-    if store_records(fields):
+    if store_records(fields, car_id):
         # send records quantity to device
         return response
 
