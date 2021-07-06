@@ -20,12 +20,12 @@ def codec8(data, car_id):
         angle = int(data[index+38:index+42], 16)
         sats = int(data[index+42:index+44], 16)
         speed = int(data[index+44:index+48], 16)
-        event_id = int(data[index+48:index+52], 16)
+        event_id = int(data[index+48:index+50], 16)
         is_parked = False
         created_at = datetime.now()
         updated_at = datetime.now()
         io_elements = {}
-        index += 56
+        index += 52
 
         # parse IO Elements
         for bytes in [1, 2, 4, 8]:
