@@ -76,10 +76,6 @@ def store_records(record_data, car_id):
         cursor = connection.cursor()
         psycopg2.extras.register_uuid()
 
-        # # getting last record
-        # last_record_querry = f"SELECT is_parked FROM tracking_record WHERE car_id={car_id} ORDER BY timestamp DESC  LIMIT 1"
-        # is_parked =
-
         insert_query = "INSERT INTO tracking_record (id, car_id, timestamp, priority, \
                                                      longitude, latitude, altitude, \
                                                      angle, satellites, speed, \
@@ -145,9 +141,10 @@ def handle_client(conn, addr):
 
             try:
                 data = conn.recv(2048)
-                recieved = binascii.hexlify(data)
-                record = binascii.unhexlify(parse_packet(recieved, car_id))
-                conn.send(record)
+                if data:
+                    recieved = binascii.hexlify(data)
+                    record = binascii.unhexlify(parse_packet(recieved, car_id))
+                    conn.send(record)
 
             except socket.error:
                 print("Error Occured.")
