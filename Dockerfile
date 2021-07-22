@@ -14,12 +14,13 @@ ENV PYTHONUNBUFFERED 1
 
 # install source packages dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache git gcc musl-dev postgresql-dev
+    apk add --no-cache gcc musl-dev postgresql-dev
 
 # Install dependencies
 COPY ./requirements.txt .
 RUN pip install --upgrade pip
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /usr/src/app/wheels -r requirements.txt
+
 
 #########
 # FINAL #
@@ -30,14 +31,13 @@ FROM python:3.8-alpine
 
 # create directory for the app user
 ENV APP_HOME=/home/app
-RUN mkdir -p $APP_HOME
 WORKDIR $APP_HOME
 
 # create the app user
 RUN addgroup -S app && adduser -S app -G app
 
 # install dependencies
-RUN apk update && apk add libpq libjpeg
+RUN apk update && apk add libpq
 COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
 RUN pip install --upgrade pip
@@ -54,4 +54,4 @@ RUN chown -R app:app $APP_HOME
 USER app
 
 # run entrypoint.prod.sh
-# ENTRYPOINT ["/home/app/entrypoint.sh"]
+# ENTRYPOINT ["python", "/home/app/server.py"]

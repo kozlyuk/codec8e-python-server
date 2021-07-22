@@ -104,6 +104,7 @@ def store_records(record_data, car_id):
 def parse_packet(data, car_id):
     """ Parse packet data and store it to database"""
 
+    print('Car ID:', car_id, ' Data:', data)
     # parse packet
     codec = int(data[16:18], 16)
 
