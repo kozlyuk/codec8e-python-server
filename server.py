@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import socket
 import threading
 import binascii
@@ -7,42 +8,24 @@ import psycopg2
 import psycopg2.extras
 from datetime import datetime
 
-from configparser import ConfigParser
-from config import config
 from teltonika import codec8, codec8e
 
 
-def parse_config(envfile='.env', section='server'):
-    """ parsing env file """
-
-    # create a parser
-    parser = ConfigParser()
-    # read config file
-    parser.read(envfile)
-
-    # get section, default to server
-    if parser.has_section(section):
-        params = parser.items(section)
-        for param in params:
-            if param[0] == 'host':
-                host = param[1]
-            if param[0] == 'port':
-                port = int(param[1])
-    else:
-        host='127.0.0.1'
-        port=12900
-
-    return host, port
-
+db_params = psycopg2.extensions.make_dsn(host = os.environ['DB_HOST'],
+                                         port = os.environ['DB_PORT'],
+                                         dbname = os.environ['DB_NAME'],
+                                         user = os.environ['DB_USER'],
+                                         password = os.environ['DB_PASSWORD']
+                                         )
 
 def check_imei(imei):
     """ Check if car with such imei is registered in database and return car id if exists"""
 
     car_id = None
+    connection = None
 
     try:
-        params = config()
-        connection = psycopg2.connect(**params)
+        connection = psycopg2.connect(db_params)
         cursor = connection.cursor()
 
         sql = f"SELECT id FROM car_car WHERE sim_imei = '{imei}';"
@@ -69,10 +52,11 @@ def check_imei(imei):
 def store_records(record_data, car_id):
     """ store records to database """
 
+    connection = None
+
     try:
         succeed = False
-        params = config()
-        connection = psycopg2.connect(**params)
+        connection = psycopg2.connect(db_params)
         cursor = connection.cursor()
         psycopg2.extras.register_uuid()
 
@@ -158,7 +142,9 @@ def start():
     """ main function """
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    host, port = parse_config()
+    host = os.environ.get('SERVER_HOST', '127.0.0.1')
+    port = os.environ.get('SERVER_PORT', 12900)
+
     s.bind((host, port))
 
     s.listen()
