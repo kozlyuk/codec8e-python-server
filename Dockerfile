@@ -14,7 +14,8 @@ ENV PYTHONUNBUFFERED 1
 
 # install source packages dependencies
 RUN apk update && apk upgrade && \
-    apk add --no-cache gcc musl-dev postgresql-dev
+    apk add --no-cache gcc musl-dev \
+    postgresql-dev tzdata
 
 # Install dependencies
 COPY ./requirements.txt .
@@ -43,6 +44,10 @@ COPY --from=builder /usr/src/app/requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache /wheels/*
 RUN rm -rf /wheels
+
+# set Timezone
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+ENV TZ=Europe/Kiev
 
 # copy project
 COPY . $APP_HOME
