@@ -143,7 +143,7 @@ def start():
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host = os.environ.get('SERVER_HOST', '127.0.0.1')
-    port = os.environ.get('SERVER_PORT', 12900)
+    port = int(os.environ.get('SERVER_PORT', '12900'))
 
     s.bind((host, port))
 
