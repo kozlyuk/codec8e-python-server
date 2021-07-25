@@ -37,7 +37,7 @@ WORKDIR $APP_HOME
 RUN addgroup -S app && adduser -S app -G app
 
 # install dependencies
-RUN apk update && apk add libpq
+RUN apk update && apk add libpq tzdata
 COPY --from=builder /usr/src/app/wheels /wheels
 COPY --from=builder /usr/src/app/requirements.txt .
 RUN pip install --upgrade pip
