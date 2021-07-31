@@ -6,7 +6,7 @@ import threading
 import binascii
 import psycopg2
 import psycopg2.extras
-from datetime import datetime
+from datetime import time
 
 from teltonika import codec8, codec8e
 
@@ -123,17 +123,16 @@ def handle_client(conn, addr):
             print("Error sending reply. Maybe it's not our device")
 
         while True:
-
             try:
                 data = conn.recv(2048)
                 if data:
                     recieved = binascii.hexlify(data)
                     record = binascii.unhexlify(parse_packet(recieved, car_id))
                     conn.send(record)
-
             except socket.error:
                 print("Error Occured.")
                 break
+            time.sleep(1)
 
     conn.close()
 
@@ -162,7 +161,8 @@ def start():
                     conn.close()
             except: pass
             break
+        time.sleep(1)
+
 
 print("[STARTING] server is starting...")
-
 start()
