@@ -132,7 +132,7 @@ def handle_client(conn, addr):
             except socket.error:
                 print("Error Occured.")
                 break
-            time.sleep(1)
+            time.sleep(0.1)
 
     conn.close()
 
