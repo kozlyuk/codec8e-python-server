@@ -6,7 +6,7 @@ import threading
 import binascii
 import psycopg2
 import psycopg2.extras
-from datetime import time
+import time
 
 from teltonika import codec8, codec8e
 
