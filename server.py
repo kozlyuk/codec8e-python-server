@@ -106,7 +106,7 @@ def parse_packet(data, car_id):
         return response
 
 
-def handle_client(conn, addr):
+def handle_client(conn, addr, stop):
     """ thread function communicating with device """
 
     print(f"[NEW CONNECTION] {addr} connected.")
@@ -123,16 +123,20 @@ def handle_client(conn, addr):
             print("Error sending reply. Maybe it's not our device")
 
         while True:
+            if stop():
+                print("Closing thread due to new connection")
+                break
             try:
                 data = conn.recv(2048)
                 if data:
                     recieved = binascii.hexlify(data)
                     record = binascii.unhexlify(parse_packet(recieved, car_id))
                     conn.send(record)
+
             except socket.error:
                 print("Error Occured.")
                 break
-            time.sleep(0.1)
+            time.sleep(1)
 
     conn.close()
 
@@ -143,8 +147,10 @@ def start():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     host = os.environ.get('SERVER_HOST', '127.0.0.1')
     port = int(os.environ.get('SERVER_PORT', '12900'))
-
     s.bind((host, port))
+
+    stop_threads = False
+    workers = {}
 
     s.listen()
     print(f"Server is listening on {host}:{port}")
@@ -152,11 +158,19 @@ def start():
     while True:
         try:
             conn, addr = s.accept()
-            thread = threading.Thread(target=handle_client, args=(conn, addr))
+            if addr in workers.keys():
+                del workers[addr]
+                stop_threads = True
+                workers[addr].join()
+            thread = threading.Thread(target=handle_client, args=(conn, addr, lambda: stop_threads))
+            workers[addr] = thread
             thread.start()
-            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+            print(f" [ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
         except KeyboardInterrupt:
             try:
+                stop_threads = True
+                for worker in workers.values():
+                    worker.join()
                 if conn:
                     conn.close()
             except: pass

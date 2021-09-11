@@ -46,8 +46,8 @@ def codec8(data, car_id):
 
         fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
                         event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
-        print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
-                "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
+        print("Timestamp: " + str(timestamp) + " Lat,Lon: " + str(lat) + ", " + str(lon) + " Altitude: " + str(alt) +
+                " Sats: " +  str(sats) + " Speed: " + str(speed) + "\nIO Elements" + str(io_elements))
 
     return fields, response
 
@@ -95,7 +95,7 @@ def codec8e(data, car_id):
 
         fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
                         event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
-        print("Timestamp: " + str(timestamp) + "\nLat,Lon: " + str(lat) + ", " + str(lon) + "\nAltitude: " + str(alt) +
-                "\nSats: " +  str(sats) + "\nSpeed: " + str(speed) + "\nIO Elements" + str(io_elements))
+        print("Timestamp: " + str(timestamp) + " Lat,Lon: " + str(lat) + ", " + str(lon) + " Altitude: " + str(alt) +
+                " Sats: " +  str(sats) + " Speed: " + str(speed) + "\nIO Elements" + str(io_elements))
 
     return fields, response
