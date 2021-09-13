@@ -106,22 +106,18 @@ def parse_packet(data, car_id):
         return response
 
 
-def handle_client(conn, addr, stop):
+def handle_client(conn, car_id, stop):
     """ thread function communicating with device """
 
-    print(f"[NEW CONNECTION] {addr} connected.")
-    imei = conn.recv(128)
-    car_id = check_imei(str(imei)[10:-1])
+    try:
+        message = '\x01'
+        message = message.encode('utf-8')
+        conn.send(message)
 
-    if car_id:
-        try:
-            message = '\x01'
-            message = message.encode('utf-8')
-            conn.send(message)
+    except:
+        print("Error sending reply")
 
-        except:
-            print("Error sending reply. Maybe it's not our device")
-
+    else:
         while True:
             if stop():
                 print("Closing thread due to new connection")
@@ -157,15 +153,8 @@ def start():
         try:
             stop_threads = False
             conn, addr = s.accept()
-            if addr in workers.keys():
-                del workers[addr]
-                stop_threads = True
-                workers[addr].join()
-                print(f" [KILL THREAD] {workers[addr]}")
-            thread = threading.Thread(target=handle_client, args=(conn, addr, lambda: stop_threads))
-            workers[addr] = thread
-            thread.start()
-            print(f" [ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+            print(f"[NEW CONNECTION] {addr} connected.")
+
         except KeyboardInterrupt:
             try:
                 stop_threads = True
@@ -176,6 +165,28 @@ def start():
                     conn.close()
             except: pass
             break
+
+        # get IMEI
+        imei = conn.recv(128)
+        car_id = check_imei(str(imei)[10:-1])
+
+        if car_id:
+            if imei in workers.keys():
+                # stop old thread
+                stop_threads = True
+                workers[imei].join()
+                del workers[imei]
+                print(f" [KILL OLD THREAD] {workers[imei]}")
+
+            # create new thread
+            thread = threading.Thread(target=handle_client, args=(conn, car_id, lambda: stop_threads))
+            workers[imei] = thread
+            thread.start()
+            print(f" [ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+
+        else:
+            print("IMEI is not registered or not active")
+
         time.sleep(1)
 
 
