@@ -149,19 +149,19 @@ def start():
     port = int(os.environ.get('SERVER_PORT', '12900'))
     s.bind((host, port))
 
-    stop_threads = False
     workers = {}
-
     s.listen()
     print(f"Server is listening on {host}:{port}")
 
     while True:
         try:
+            stop_threads = False
             conn, addr = s.accept()
             if addr in workers.keys():
                 del workers[addr]
                 stop_threads = True
                 workers[addr].join()
+                print(f" [KILL THREAD] {workers[addr]}")
             thread = threading.Thread(target=handle_client, args=(conn, addr, lambda: stop_threads))
             workers[addr] = thread
             thread.start()
@@ -171,6 +171,7 @@ def start():
                 stop_threads = True
                 for worker in workers.values():
                     worker.join()
+                    print(f" [KILL THREAD] {worker}")
                 if conn:
                     conn.close()
             except: pass
