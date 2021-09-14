@@ -7,6 +7,7 @@ import binascii
 import psycopg2
 import psycopg2.extras
 import time
+from datetime import datetime
 
 from teltonika import codec8, codec8e
 
@@ -33,12 +34,12 @@ def check_imei(imei):
         car_id = cursor.fetchone()
 
         if car_id:
-            print("IMEI registered. Car id:", car_id)
+            print(f"{datetime.now()}: IMEI registered. Car id: {car_id}")
         else:
-            print("IMEI not registered:", imei)
+            print(f"{datetime.now()}: IMEI not registered: {imei}")
 
     except (Exception, psycopg2.Error) as error:
-        print("Error while fetching data from PostgreSQL", error)
+        print(f"{datetime.now()}: Error while fetching data from PostgreSQL: {error}")
 
     finally:
         # closing database connection.
@@ -66,13 +67,13 @@ def store_records(record_data, car_id):
                                                      event_id, is_parked, io_elements, \
                                                      created_at, updated_at) \
                                                      VALUES %s"
-        print("Store records to database" + "\n")
+        print(f"{datetime.now()}: Store records to database")
         psycopg2.extras.execute_values(cursor, insert_query, record_data)
 
         connection.commit()
 
     except (Exception, psycopg2.Error) as error:
-        print("Error while fetching data from PostgreSQL", error)
+        print(f"{datetime.now()}: Error while fetching data from PostgreSQL: {error}")
 
     else:
         succeed = True
@@ -88,7 +89,6 @@ def store_records(record_data, car_id):
 def parse_packet(data, car_id):
     """ Parse packet data and store it to database"""
 
-    print('Car ID:', car_id, ' Data:', data)
     # parse packet
     codec = int(data[16:18], 16)
 
@@ -98,7 +98,7 @@ def parse_packet(data, car_id):
     elif (codec == 0x8E):
         fields, response = codec8e(data, car_id)
     else:
-        print('This codec is not implemented:', codec)
+        print(f"{datetime.now()}: This codec is not implemented: {codec}")
 
     # store records to database
     if store_records(fields, car_id):
@@ -115,13 +115,13 @@ def handle_client(conn, car_id, stop):
         conn.send(message)
 
     except:
-        print("Error sending reply")
+        print(f"{datetime.now()}: Error sending reply")
 
     else:
         while True:
             if stop():
-                print("Closing thread due to new connection")
-                break
+                print(f"{datetime.now()}: Closing thread due to new connection for: {car_id}")
+                # break
             try:
                 data = conn.recv(2048)
                 if data:
@@ -130,7 +130,7 @@ def handle_client(conn, car_id, stop):
                     conn.send(record)
 
             except socket.error:
-                print("Error Occured.")
+                print(f"{datetime.now()}: Error Occured")
                 break
             time.sleep(1)
 
@@ -147,21 +147,22 @@ def start():
 
     workers = {}
     s.listen()
-    print(f"Server is listening on {host}:{port}")
+    print(f"{datetime.now()}: Server is listening on {host}:{port}")
 
     while True:
         try:
             conn, addr = s.accept()
-            print(f"[NEW CONNECTION] {addr} connected.")
+            print(f"{datetime.now()}: New connection {addr} connected")
 
-        except KeyboardInterrupt:
+        except:
             try:
                 stop_threads = True
                 for worker in workers.values():
                     worker.join()
-                    print(f" [KILL THREAD] {worker}")
+                    print(f"{datetime.now()}: Killing thread {worker}")
                 if conn:
                     conn.close()
+                print(f"{datetime.now()}: Close connection due to exception")
             except: pass
             break
 
@@ -174,21 +175,18 @@ def start():
                 # stop old thread
                 stop_threads = True
                 workers[imei].join()
-                print(f"[KILL OLD THREAD] {workers[imei]}")
-                del workers[imei]
+                print(f"{datetime.now()}: Killing old thread {workers[imei]}")
 
             # create new thread
             stop_threads = False
             thread = threading.Thread(target=handle_client, args=(conn, car_id, lambda: stop_threads))
             workers[imei] = thread
             thread.start()
-            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
-
-        else:
-            print("IMEI is not registered or not active")
+            print(f"{datetime.now()}: Start new thread: {workers[imei]}")
+            print(f"{datetime.now()}: Active connections: {threading.activeCount() - 1} - {workers}")
 
         time.sleep(1)
 
 
-print("[STARTING] server is starting...")
+print(f"{datetime.now()}: Server is starting...")
 start()
