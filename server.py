@@ -151,7 +151,6 @@ def start():
 
     while True:
         try:
-            stop_threads = False
             conn, addr = s.accept()
             print(f"[NEW CONNECTION] {addr} connected.")
 
@@ -175,14 +174,15 @@ def start():
                 # stop old thread
                 stop_threads = True
                 workers[imei].join()
-                print(f" [KILL OLD THREAD] {workers[imei]}")
+                print(f"[KILL OLD THREAD] {workers[imei]}")
                 del workers[imei]
 
             # create new thread
+            stop_threads = False
             thread = threading.Thread(target=handle_client, args=(conn, car_id, lambda: stop_threads))
             workers[imei] = thread
             thread.start()
-            print(f" [ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
 
         else:
             print("IMEI is not registered or not active")
