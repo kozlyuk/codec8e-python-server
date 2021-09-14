@@ -175,8 +175,8 @@ def start():
                 # stop old thread
                 stop_threads = True
                 workers[imei].join()
-                del workers[imei]
                 print(f" [KILL OLD THREAD] {workers[imei]}")
+                del workers[imei]
 
             # create new thread
             thread = threading.Thread(target=handle_client, args=(conn, car_id, lambda: stop_threads))
