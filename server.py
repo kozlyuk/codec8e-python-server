@@ -2,7 +2,7 @@
 
 import os
 import socket
-import threading
+import multiprocessing
 import binascii
 import psycopg2
 import psycopg2.extras
@@ -106,7 +106,7 @@ def parse_packet(data, car_id):
         return response
 
 
-def handle_client(conn, car_id, stop):
+def handle_client(conn, car_id):
     """ thread function communicating with device """
 
     try:
@@ -119,9 +119,6 @@ def handle_client(conn, car_id, stop):
 
     else:
         while True:
-            if stop():
-                print(f"{datetime.now()}: Closing thread due to new connection for: {car_id}")
-                # break
             try:
                 data = conn.recv(2048)
                 if data:
@@ -130,7 +127,7 @@ def handle_client(conn, car_id, stop):
                     conn.send(record)
 
             except socket.error:
-                print(f"{datetime.now()}: Error Occured")
+                print(f"{datetime.now()}: Error receiving packets")
                 break
             time.sleep(1)
 
@@ -145,7 +142,9 @@ def start():
     port = int(os.environ.get('SERVER_PORT', '12900'))
     s.bind((host, port))
 
-    workers = {}
+    # dict of all processes, so that they can be killed afterwards
+    processes = {}
+
     s.listen()
     print(f"{datetime.now()}: Server is listening on {host}:{port}")
 
@@ -154,15 +153,14 @@ def start():
             conn, addr = s.accept()
             print(f"{datetime.now()}: New connection {addr} connected")
 
-        except:
+        except KeyboardInterrupt:
             try:
-                stop_threads = True
-                for worker in workers.values():
-                    worker.join()
-                    print(f"{datetime.now()}: Killing thread {worker}")
+                for process in processes.values():
+                    process.terminate()
+                    print(f"{datetime.now()}: Killing all processes")
                 if conn:
                     conn.close()
-                print(f"{datetime.now()}: Close connection due to exception")
+                print(f"{datetime.now()}: Close connection due to Keyboard Interrupt")
             except: pass
             break
 
@@ -171,19 +169,16 @@ def start():
         car_id = check_imei(str(imei)[10:-1])
 
         if car_id:
-            if imei in workers.keys():
-                # stop old thread
-                stop_threads = True
-                workers[imei].join()
-                print(f"{datetime.now()}: Killing old thread {workers[imei]}")
+            if imei in processes.keys():
+                # kill old process
+                processes[imei].terminate()
+                print(f"{datetime.now()}: Kill old process {processes[imei]}")
 
-            # create new thread
-            stop_threads = False
-            thread = threading.Thread(target=handle_client, args=(conn, car_id, lambda: stop_threads))
-            workers[imei] = thread
-            thread.start()
-            print(f"{datetime.now()}: Start new thread: {workers[imei]}")
-            print(f"{datetime.now()}: Active connections: {threading.activeCount() - 1} - {workers}")
+            # create new process
+            process = multiprocessing.Process(target=handle_client, args=(conn, car_id))
+            process.start()
+            processes[imei] = process
+            print(f"{datetime.now()}: Start new process: {processes[imei]}")
 
         time.sleep(1)
 
