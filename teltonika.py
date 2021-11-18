@@ -44,6 +44,10 @@ def codec8(data, car_id):
         if not is_ignition_on and not is_movement:
             is_parked = True
 
+        # fix altitude tracker bug
+        if alt > 32767:
+            alt = 0
+
         fields.append((uuid.uuid4(), car_id, timestamp, priority, lon, lat, alt, angle, sats, speed,
                         event_id, is_parked, json.dumps(io_elements), created_at, updated_at))
         print("Timestamp: " + str(timestamp) + " Lat,Lon: " + str(lat) + ", " + str(lon) + " Altitude: " + str(alt) +
